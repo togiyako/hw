@@ -1,0 +1,18 @@
+
+CC = gcc
+
+all: program
+	
+program: main.o sum.o
+	$(CC) -o program main.o sum.o
+
+main.o: main.c sum.h
+	$(CC) -c main.o main.c
+
+sum.o: sum.c sum.h
+	$(CC) -c sum.o sum.c
+
+clean:
+	rm -f *.o program
+
+.PHONY : clean

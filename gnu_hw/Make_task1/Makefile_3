@@ -1,0 +1,19 @@
+CC = gcc
+TARGET = program
+SOURCES = main.c sum.c
+OBJECTS = $(SOURCES:c.=.o)
+HEADERS = sum.h
+
+all:$(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) -o $@ $^
+
+%.o: %.c $(HEADERS)
+	$(CC) -c $@ $<
+
+clean:
+	rm -f *.o $(TARGET)
+
+.PHONY : clean
+
