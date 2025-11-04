@@ -1,0 +1,11 @@
+#ifndef STATUS_H
+#define STATUS_H
+
+typedef enum {
+  DSA_STATUS_SUCCESS = 0,
+  DSA_STATUS_FAILURE,
+  DSA_STATUS_OUT_OF_RANGE,
+  DSA_STATUS_MEM_ALLOC_FAILED,
+} dsa_status_t;
+
+#endif STATUS_H
