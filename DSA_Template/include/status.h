@@ -8,4 +8,4 @@ typedef enum {
   DSA_STATUS_MEM_ALLOC_FAILED,
 } dsa_status_t;
 
-#endif STATUS_H
+#endif //STATUS_H
