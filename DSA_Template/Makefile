@@ -2,6 +2,10 @@ CC = gcc
 CFLAGS = -g -Wall -Wextra
 INCLUDES = -Iinclude -Itests
 
+ifeq ($(DEBUG), y)
+	CFLAGS += -DDSA_PERF_MEASURE
+endif
+
 TARGET = run_tests
 
 SRCS = main.c $(wildcard src/*.c) $(wildcard tests/src/*.c)

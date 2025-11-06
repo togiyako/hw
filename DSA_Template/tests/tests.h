@@ -37,4 +37,10 @@ dsa_test_status_t test_darray_insert_at();
 dsa_test_status_t test_darray_remove_at();
 dsa_test_status_t test_darray_reserve_and_clear();
 
+dsa_test_status_t test_darray_sort_bubble();
+dsa_test_status_t test_darray_sort_merge();
+dsa_test_status_t test_darray_sort_quick();
+dsa_test_status_t test_darray_search_linear();
+dsa_test_status_t test_darray_search_binary();
+
 #endif

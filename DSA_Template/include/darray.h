@@ -137,4 +137,42 @@ int darray_get_size(darray_t *array);
  */
 int darray_get_capacity(darray_t *array);
 
+/**
+ * @brief Sorts the array using Bubble Sort.
+ * @param array Pointer to the array.
+ * @returns DSA_STATUS_SUCCESS on success.
+ */
+dsa_status_t darray_sort_bubble(darray_t *array);
+
+/**
+ * @brief Sorts the array using Merge Sort.
+ * @param array Pointer to the array.
+ * @returns DSA_STATUS_SUCCESS on success, or an error code.
+ */
+dsa_status_t darray_sort_merge(darray_t *array);
+
+/**
+ * @brief Sorts the array using Quick Sort.
+ * @param array Pointer to the array.
+ * @returns DSA_STATUS_SUCCESS on success.
+ */
+dsa_status_t darray_sort_quick(darray_t *array);
+
+/**
+ * @brief Finds an element using Linear Search.
+ * @param array Pointer to the array.
+ * @param data The value to find.
+ * @returns The index of the first occurrence, or -1 if not found.
+ */
+int darray_search_linear(darray_t *array, int data);
+
+/**
+ * @brief Finds an element using Binary Search.
+ * @note The array MUST be sorted for this to work correctly.
+ * @param array Pointer to the array.
+ * @param data The value to find.
+ * @returns The index of the element, or -1 if not found.
+ */
+int darray_search_binary(darray_t *array, int data);
+
 #endif // DARRAY_H

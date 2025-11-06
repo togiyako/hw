@@ -3,6 +3,13 @@
 #include "status.h"
 #include <stdio.h>
 #include <assert.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <time.h>
+
+// #define LARGE_ARRAY_SIZE 1000000 // !NE REKOMENDUIU!!
+#define LARGE_ARRAY_SIZE 100000
+
 
 #define DSA_ASSERT_STATUS(received_status, expected_status)                     \
   do {                                                                          \
@@ -31,6 +38,35 @@
       return DSA_TEST_FAILURE;                                                  \
     }                                                                           \
   } while(0)
+
+
+
+static bool is_sorted(darray_t *arr) {
+    for (int i = 0; i < darray_get_size(arr) - 1; i++) {
+        int val1, val2;
+        darray_get_at(arr, i, &val1);
+        darray_get_at(arr, i + 1, &val2);
+        if (val1 > val2) {
+            printf("Sort failed: arr[%d]=%d > arr[%d]=%d\n", i, val1, i+1, val2);
+            return false;
+        }
+    }
+    return true;
+}
+
+
+static void populate_test_array_large(darray_t *arr, int size) {
+    darray_clear(arr);
+    dsa_status_t status = darray_reserve(arr, size);
+    if (status != DSA_STATUS_SUCCESS) {
+        printf("Failed to reserve memory for large array test!\n");
+        return;
+    }
+
+    for (int i = 0; i < size; i++) {
+        darray_push_back(arr, rand() % (size * 10) + 1);
+    }
+}
 
 
 dsa_test_status_t test_darray_create_destroy() {
@@ -184,4 +220,85 @@ dsa_test_status_t test_darray_reserve_and_clear() {
 
   darray_destroy(arr);
   return DSA_TEST_SUCCESS;
+}
+
+
+dsa_test_status_t test_darray_sort_bubble() {
+    printf("Running test_darray_sort_bubble (size: %d)\n", LARGE_ARRAY_SIZE);
+    darray_t *arr = NULL;
+    darray_create(&arr, 10);
+    populate_test_array_large(arr, LARGE_ARRAY_SIZE);
+    
+    DSA_ASSERT_STATUS(darray_sort_bubble(arr), DSA_STATUS_SUCCESS);
+    
+    DSA_ASSERT_TRUE(darray_get_size(arr) == LARGE_ARRAY_SIZE);
+    DSA_ASSERT_TRUE(is_sorted(arr));
+    
+    darray_destroy(arr);
+    return DSA_TEST_SUCCESS;
+}
+
+dsa_test_status_t test_darray_sort_merge() {
+    printf("Running test_darray_sort_merge (size: %d)\n", LARGE_ARRAY_SIZE);
+    darray_t *arr = NULL;
+    darray_create(&arr, 10);
+    populate_test_array_large(arr, LARGE_ARRAY_SIZE);
+    
+    DSA_ASSERT_STATUS(darray_sort_merge(arr), DSA_STATUS_SUCCESS);
+    
+    DSA_ASSERT_TRUE(darray_get_size(arr) == LARGE_ARRAY_SIZE);
+    DSA_ASSERT_TRUE(is_sorted(arr));
+    
+    darray_destroy(arr);
+    return DSA_TEST_SUCCESS;
+}
+
+dsa_test_status_t test_darray_sort_quick() {
+    printf("Running test_darray_sort_quick (size: %d)\n", LARGE_ARRAY_SIZE);
+    darray_t *arr = NULL;
+    darray_create(&arr, 10);
+    populate_test_array_large(arr, LARGE_ARRAY_SIZE);
+    
+    DSA_ASSERT_STATUS(darray_sort_quick(arr), DSA_STATUS_SUCCESS);
+    
+    DSA_ASSERT_TRUE(darray_get_size(arr) == LARGE_ARRAY_SIZE);
+    DSA_ASSERT_TRUE(is_sorted(arr));
+    
+    darray_destroy(arr);
+    return DSA_TEST_SUCCESS;
+}
+
+dsa_test_status_t test_darray_search_linear() {
+    printf("Running test_darray_search_linear (size: %d)\n", LARGE_ARRAY_SIZE);
+    darray_t *arr = NULL;
+    darray_create(&arr, 10);
+    populate_test_array_large(arr, LARGE_ARRAY_SIZE);
+
+    DSA_ASSERT_TRUE(darray_search_linear(arr, -1) == -1);
+
+    int value_to_find;
+    darray_get_at(arr, LARGE_ARRAY_SIZE / 2, &value_to_find);
+    DSA_ASSERT_TRUE(darray_search_linear(arr, value_to_find) != -1);
+    
+    darray_destroy(arr);
+    return DSA_TEST_SUCCESS;
+}
+
+dsa_test_status_t test_darray_search_binary() {
+    printf("Running test_darray_search_binary (size: %d)\n", LARGE_ARRAY_SIZE);
+    darray_t *arr = NULL;
+    darray_create(&arr, 10);
+    populate_test_array_large(arr, LARGE_ARRAY_SIZE);
+
+    int value_to_find;
+    darray_get_at(arr, LARGE_ARRAY_SIZE / 2, &value_to_find);
+
+    DSA_ASSERT_STATUS(darray_sort_merge(arr), DSA_STATUS_SUCCESS); 
+
+    DSA_ASSERT_TRUE(darray_search_binary(arr, -1) == -1);
+
+    DSA_ASSERT_TRUE(darray_search_binary(arr, value_to_find) != -1);
+
+    darray_destroy(arr);
+    return DSA_TEST_SUCCESS;
 }
