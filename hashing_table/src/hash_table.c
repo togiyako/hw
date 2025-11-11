@@ -1,6 +1,22 @@
 #include "hash_table.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
+
+typedef struct hash_table_node
+{
+    void *entry;
+    struct hash_table_node *next;
+} hash_table_node_t;
+
+struct hash_table
+{
+    unsigned int capacity;
+    hash_table_hash_func hash_func;
+    hash_table_compare_func compare_func;
+    hash_table_node_t **buckets;
+};
+
 
 static unsigned int _hash_table_get_index(hash_table_t *table, void *entry) {
     return (unsigned int)table->hash_func(entry) % table->capacity;
