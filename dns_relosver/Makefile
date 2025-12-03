@@ -1,5 +1,5 @@
 CC = gcc
-TARGET = relosver
+TARGET = resolver
 SRC = resolver.c
 
 all: $(TARGET)
