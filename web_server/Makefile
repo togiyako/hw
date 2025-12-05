@@ -1,8 +1,8 @@
 CC = gcc
 TARGET = main
-SOURCES = main.c server.c
+SOURCES = src/main.c src/server.c
 OBJECTS = $(SOURCES:.c=.o)
-HEADERS = server.h
+HEADERS = src/server.h
 
 all: $(TARGET)
 
@@ -13,6 +13,6 @@ $(TARGET) : $(OBJECTS)
 	$(CC) -c -o $@ $<
 
 clean:
-	rm -f *.o $(TARGET)
+	rm -f src/*.o $(TARGET)
 
 .PHONY: clean all
