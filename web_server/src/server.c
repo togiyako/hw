@@ -1,12 +1,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <string.h>
 #include "server.h"
 #include <sys/sendfile.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <arpa/inet.h>
+#include <stdarg.h>
+
+static char LOG_FILE_PATH[256] = "";
+
+void logger_init(const char *filename) {
+    if (filename && strlen(filename) > 0) {
+        strncpy(LOG_FILE_PATH, filename, sizeof(LOG_FILE_PATH) - 1);
+    }
+}
+
+void log_message(LogLevel level, const char *file, int line, const char *format, ...) {
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char time_str[32];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", t);
+
+    const char *level_str;
+    const char *color_code;
+    
+    switch (level) {
+        case LOG_FATAL: level_str = "FATAL"; color_code = "\033[1;31m"; break;
+        case LOG_ERROR: level_str = "ERROR"; color_code = "\033[0;31m"; break;
+        case LOG_WARN:  level_str = "WARN";  color_code = "\033[0;33m"; break;
+        case LOG_INFO:  level_str = "INFO";  color_code = "\033[0;32m"; break;
+        case LOG_DEBUG: level_str = "DEBUG"; color_code = "\033[0;36m"; break;
+        default:        level_str = "UNKNOWN"; color_code = "\033[0m"; break;
+    }
+    const char *reset_code = "\033[0m";
+
+    char message[1024];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(message, sizeof(message), format, args);
+    va_end(args);
+
+    printf("%s[%s] [%s] %s (%s:%d)%s\n", 
+           color_code, time_str, level_str, message, file, line, reset_code);
+
+    if (strlen(LOG_FILE_PATH) > 0) {
+        FILE *f = fopen(LOG_FILE_PATH, "a");
+        if (f) {
+            fprintf(f, "[%s] [%s] %s (%s:%d)\n", time_str, level_str, message, file, line);
+            fclose(f);
+        }
+    }
+}
 
 void send_response(int socket, HttpStatusCode status_code, char *content_type, char *body) {
     char header[BUFFER_SIZE];
@@ -77,7 +126,7 @@ char *read_file(const char *filename) {
 void send_file_stream(int socket, const char *filepath) {
     int fd = open(filepath, O_RDONLY);
     if (fd == -1) {
-        send_response(socket, HTTP_NOT_FOUND, "text/plain", "File not found");
+        send_response(socket, HTTP_NOT_FOUND, "text/html", "<html><body><h1>404 Not Found</h1></body></html>");
         return;
     }
 
@@ -87,7 +136,7 @@ void send_file_stream(int socket, const char *filepath) {
     char header[1024];
     int len = sprintf(header, 
         "HTTP/1.1 200 OK\r\n"
-        "Content-Type: application/octet-stream\r\n"
+        "Content-Type: text/html\r\n"
         "Content-Length: %ld\r\n"
         "\r\n",
         file_stat.st_size);
@@ -99,6 +148,7 @@ void send_file_stream(int socket, const char *filepath) {
     while (offset < file_stat.st_size) {
         sent_bytes = sendfile(socket, fd, &offset, file_stat.st_size - offset);
         if (sent_bytes <= 0) {
+            if (sent_bytes < 0) perror("sendfile error");
             break;
         }
     }
@@ -109,7 +159,7 @@ void send_file_stream(int socket, const char *filepath) {
 void handle_upload(int socket, long content_length, const char *filename, char *initial_data, int initial_len) {
     FILE *f = fopen(filename, "wb");
     if (!f) {
-        send_response(socket, HTTP_INTERNAL_SERVER_ERROR, "text/plain", "Cannot open file");
+        send_response(socket, HTTP_INTERNAL_SERVER_ERROR, "text/html", "<html><body><h1>500 Internal Server Error</h1><p>Cannot open file for writing</p></body></html>");
         return;
     }
 
@@ -142,11 +192,15 @@ struct Server server_Constructor(ServerConfig config, void (*launch)(struct Serv
 
     server.address.sin_family = AF_INET;
     server.address.sin_port = htons(config.port);
-    server.address.sin_addr.s_addr = INADDR_ANY;
+    
+    if (inet_pton(AF_INET, config.ip_address, &server.address.sin_addr) <= 0) {
+        LOG_ERROR("Invalid address / Address not supported: %s", config.ip_address);
+        server.address.sin_addr.s_addr = INADDR_ANY; 
+    }
 
     server.socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server.socket < 0) {
-        perror("Failed to initialize/connect to socket...\n");
+        LOG_FATAL("Failed to initialize socket: %s", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
@@ -154,12 +208,12 @@ struct Server server_Constructor(ServerConfig config, void (*launch)(struct Serv
     setsockopt(server.socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     if (bind(server.socket, (struct sockaddr*)&server.address, sizeof(server.address)) < 0) {
-        perror("Failed to bind socket...\n");
+        LOG_FATAL("Failed to bind socket on port %d: %s", config.port, strerror(errno));
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server.socket, config.backlock) < 0) {
-        perror("Failed to start listening...\n");
+    if (listen(server.socket, config.backlog) < 0) {
+        LOG_FATAL("Failed to start listening: %s", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
@@ -168,91 +222,158 @@ struct Server server_Constructor(ServerConfig config, void (*launch)(struct Serv
 
 void launch(struct Server *server) {
     char buffer[BUFFER_SIZE];
+    int addrlen = sizeof(server->address);
+
+    logger_init(server->config.log_file);
+
+    printf("=== SERVER STARTED on %s:%d ===\n", server->config.ip_address, server->config.port);
+
     while (1) {
-        printf("=== WAITING FOR CONNECTION === \n");
-        int addrlen = sizeof(server->address);
         int new_socket = accept(server->socket, (struct sockaddr*)&server->address, (socklen_t*)&addrlen);
+        if (new_socket < 0) {
+            LOG_ERROR("Accept failed: %s", strerror(errno));
+            continue;
+        }
 
-        ssize_t bytesRead = read(new_socket, buffer, BUFFER_SIZE - 1);
-        if (bytesRead <= 0) {
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            LOG_FATAL("Fork failed: %s", strerror(errno));
             close(new_socket);
             continue;
         }
-        buffer[bytesRead] = '\0';
 
-        char method[16], path[256], proto[16];
+        if (pid == 0) {
+            close(server->socket);
 
-        if (sscanf(buffer, "%s %s %s", method, path, proto) < 2) {
-            printf("Invalid request received\n");
-            close(new_socket);
-            continue;
-        }
-        printf("[%s] Request: %s\n", method, path);
+            struct timeval tv;
+            tv.tv_sec = server->config.keep_alive_timeout;
+            tv.tv_usec = 0;
+            setsockopt(new_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 
-        if (strcmp(method, "GET") == 0) {
-            char file_path[512];
-            if (strcmp(path, "/") == 0) {
-                sprintf(file_path, "%s/index.html", server->config.root_dir);
-            } else {
-                sprintf(file_path, "%s%s", server->config.root_dir, path);
-            }
- 
-            send_file_stream(new_socket, file_path);
-        } 
-        else if (strcmp(method, "POST") == 0) {
-            long content_len = 0;
+            while(1) {
+                memset(buffer, 0, BUFFER_SIZE);
 
-            char *len_str = strstr(buffer, "Content-Length: ");
-            if (len_str) {
-                sscanf(len_str, "Content-Length: %ld", &content_len);
-            }
-
-            char *body_start = strstr(buffer, "\r\n\r\n");
-            int initial_body_len = 0;
-            
-            if (body_start) {
-                body_start += 4;
-                initial_body_len = bytesRead - (body_start - buffer);
-            } else {
-                body_start = buffer + bytesRead; 
-            }
-
-            if (content_len > 0) {
-                char save_path[512];
-                sprintf(save_path, "%s/uploaded_file_%d.bin", server->config.storage_dir, new_socket);
+                ssize_t bytesRead = read(new_socket, buffer, BUFFER_SIZE - 1);
                 
-                printf("Uploading %ld bytes to %s...\n", content_len, save_path);
+                if (bytesRead <= 0) {
+                    break; 
+                }
+                
+                buffer[bytesRead] = '\0';
 
-                handle_upload(new_socket, content_len, save_path, body_start, initial_body_len);
-            } else {
-                send_response(new_socket, HTTP_BAD_REQUEST, "text/plain", "Missing Content-Length");
-            }
-        }
-        else {
-             send_response(new_socket, HTTP_NOT_IMPLEMENTED, "text/plain", "Method not allowed");
-        }
+                char method[16], path[256], proto[16];
+                if (sscanf(buffer, "%s %s %s", method, path, proto) < 2) {
+                    break; 
+                }
+
+                LOG_INFO("[PID:%d] Request: %s %s", getpid(), method, path);
+
+                if (strcmp(method, "GET") == 0) {
+                    char file_path[512];
+                    if (strcmp(path, "/") == 0)
+                        snprintf(file_path, sizeof(file_path), "%s/index.html", server->config.root_dir);
+                    else
+                        if (strstr(path, "..")) {
+                            send_response(new_socket, HTTP_FORBIDDEN, "text/html", "<html><body><h1>403 Forbidden</h1></body></html>");
+                            continue;
+                        }
+
+                        snprintf(file_path, sizeof(file_path), "%s%s", server->config.root_dir, path);
         
-        close(new_socket);
+                    send_file_stream(new_socket, file_path);
+                } 
+                else if (strcmp(method, "POST") == 0) {
+                    long content_len = 0;
+                    char *len_str = strstr(buffer, "Content-Length: ");
+                    if (len_str) sscanf(len_str, "Content-Length: %ld", &content_len);
+
+                    char *body_start = strstr(buffer, "\r\n\r\n");
+                    int initial_body_len = 0;
+                    if (body_start) {
+                        body_start += 4;
+                        initial_body_len = bytesRead - (body_start - buffer);
+                    } else {
+                        body_start = buffer + bytesRead;
+                    }
+
+                    if (content_len > 0) {
+                        char save_path[512];
+                        snprintf(save_path, sizeof(save_path), "%s/upload_%d_%ld.bin", 
+                            server->config.storage_dir, getpid(), time(NULL));
+                        
+                        handle_upload(new_socket, content_len, save_path, body_start, initial_body_len);
+                    } else {
+                        LOG_WARN("POST request failed: No Content-Length provided (PID: %d)", getpid());
+                        send_response(new_socket, HTTP_BAD_REQUEST, "text/html", "<html><body><h1>400 Bad Request</h1></body></html>");
+                    }
+                }
+                else if (strcmp(method, "DELETE") == 0) {
+                    char file_path[512];
+                    if (strcmp(path, "/") == 0) {
+                         send_response(new_socket, HTTP_BAD_REQUEST, "text/html", "<html><body><h1>Cannot delete root</h1></body></html>");
+                    } else {
+
+                        if (strstr(path, "..")) {
+                        send_response(new_socket, HTTP_FORBIDDEN, "text/html", "<html><body><h1>403 Forbidden</h1></body></html>");
+                         continue; 
+                        }
+
+                        snprintf(file_path, sizeof(file_path), "%s%s", server->config.root_dir, path);
+                        if (remove(file_path) == 0) {
+                            send_response(new_socket, HTTP_OK, "text/html", "<html><body><h1>File Deleted</h1></body></html>");
+                        } else {
+                            if (errno == ENOENT)
+                                send_response(new_socket, HTTP_NOT_FOUND, "text/html", "<html><body><h1>404 Not Found</h1></body></html>");
+                            else
+                                send_response(new_socket, HTTP_FORBIDDEN, "text/html","<html><body><h1>403 Forbidden</h1></body></html>");
+                        }
+                    }
+                }
+                else {
+                    send_response(new_socket, HTTP_NOT_IMPLEMENTED, "text/html", "<html><body><h1>501 Not Implemented</h1></body></html>");
+                }
+                if (strstr(buffer, "Connection: close")) {
+                    break;
+                }
+            }
+            
+            close(new_socket);
+            exit(0);
+        } 
+        else {
+            close(new_socket);
+        }
     }
 }
 
 ServerConfig load_config(const char *filename) {
     ServerConfig config;
     config.port = 8080;
-    config.backlock = 10;
+    config.backlog = 10;
+    config.keep_alive_timeout = 5;
     strcpy(config.root_dir, ".");
     strcpy(config.storage_dir, "./storage");
+    strcpy(config.ip_address, "0.0.0.0");
+    strcpy(config.log_file, "");
 
     FILE *f = fopen(filename, "r");
     if (!f) return config;
 
     char line[256];
     while (fgets(line, sizeof(line), f)) {
+        line[strcspn(line, "\r\n")] = 0;
+
         char key[50], val[200];
+
         if (sscanf(line, "%[^=]=%s", key, val) == 2) {
             if (strcmp(key, "port") == 0) config.port = atoi(val);
             if (strcmp(key, "root_dir") == 0) strcpy(config.root_dir, val);
             if (strcmp(key, "storage_dir") == 0) strcpy(config.storage_dir, val);
+            if (strcmp(key, "ip") == 0) strcpy(config.ip_address, val);
+            if (strcmp(key, "max_clients") == 0) config.backlog = atoi(val);
+            if (strcmp(key, "log_file") == 0) strcpy(config.log_file, val);
+            if (strcmp(key, "keep_alive_timeout") == 0) config.keep_alive_timeout = atoi(val);
         }
     }
     fclose(f);
