@@ -1,0 +1,2 @@
+[2025-12-19 14:57:17] [DEBUG] Configuration loaded. Root: . (src/main.c:16)
+[2025-12-19 14:57:24] [FATAL] Bind failed on port 8080 (src/server.c:189)
