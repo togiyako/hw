@@ -1,0 +1,2 @@
+stub_sai_lag.lo: stub_sai_lag.c /usr/include/stdc-predef.h
+/usr/include/stdc-predef.h:
