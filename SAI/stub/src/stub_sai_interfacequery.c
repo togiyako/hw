@@ -119,6 +119,10 @@ sai_status_t sai_api_query(_In_ sai_api_t sai_api_id, _Out_ void** api_method_ta
     case SAI_API_NEIGHBOR:
         *(const sai_neighbor_api_t**)api_method_table = &neighbor_api;
         return SAI_STATUS_SUCCESS;
+    
+    case SAI_API_LAG:
+        *(const sai_lag_api_t**)api_method_table = &lag_api;
+        return SAI_STATUS_SUCCESS;
 
     case SAI_API_QOS_MAPS:
         /* TODO : implement */
@@ -144,9 +148,9 @@ sai_status_t sai_api_query(_In_ sai_api_t sai_api_id, _Out_ void** api_method_ta
         /* TODO : implement */
         return SAI_STATUS_NOT_IMPLEMENTED;
 
-    case SAI_API_LAG:
-        /* TODO : implement */
-        return SAI_STATUS_NOT_IMPLEMENTED;
+    // case SAI_API_LAG:
+    //     /* TODO : implement */
+    //     return SAI_STATUS_NOT_IMPLEMENTED;
 
     default:
         fprintf(stderr, "Invalid API type %d\n", sai_api_id);
