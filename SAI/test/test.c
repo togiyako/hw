@@ -8,16 +8,27 @@ const service_method_table_t test_services = { test_profile_get_value, test_prof
 int main()
 {
     sai_status_t      status;
-    sai_switch_api_t *switch_api;
+    sai_switch_api_t *switch_api = NULL;
     sai_lag_api_t    *lag_api;
     
     sai_object_id_t lag1, lag2;
     sai_object_id_t mem1, mem2, mem3, mem4;
-    sai_attribute_t attr;
+    sai_attribute_t attr = {0};
 
     sai_api_initialize(0, &test_services);
+
     sai_api_query(SAI_API_SWITCH, (void**)&switch_api);
+    if (status != SAI_STATUS_SUCCESS || switch_api == NULL) {
+        printf("Failed to query SWITCH API. Status: %d\n", status);
+        return -1;
+    }
+
     sai_api_query(SAI_API_LAG, (void**)&lag_api);
+    if (status != SAI_STATUS_SUCCESS || lag_api == NULL) {
+        printf("Failed to qury LAG API. Status: %d\n", status);
+        return -1;
+    }
+
     switch_api->initialize_switch(0, "HW_ID", 0, NULL);
 
     printf("\n");
