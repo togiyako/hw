@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "sai.h"
-#include "stub_sai.h"
+#include "../stub/inc/stub_sai.h"
 
 const char* test_profile_get_value(_In_ sai_switch_profile_id_t profile_id, _In_ const char* variable) { return 0; }
 int test_profile_get_next_value(_In_ sai_switch_profile_id_t profile_id, _Out_ const char** variable, _Out_ const char** value) { return -1; }
@@ -9,19 +9,41 @@ const service_method_table_t test_services = { test_profile_get_value, test_prof
 int main()
 {
     sai_status_t      status;
-    sai_switch_api_t *switch_api;
-    sai_lag_api_t    *lag_api;
+    sai_switch_api_t *switch_api = NULL;
+    sai_lag_api_t    *lag_api = NULL;
     
-    sai_object_id_t   lag1, lag2;
+    sai_object_id_t   lag1 = SAI_NULL_OBJECT_ID, lag2 = SAI_NULL_OBJECT_ID;
     sai_object_id_t   mem1, mem2, mem3, mem4;
-    sai_attribute_t   attr_list[2];
-    sai_attribute_t   sw_attr[1];
-    sai_object_id_t   port_list[PORT_NUMBER];
 
-    sai_api_initialize(0, &test_services);
-    sai_api_query(SAI_API_SWITCH, (void**)&switch_api);
-    sai_api_query(SAI_API_LAG, (void**)&lag_api);
-    switch_api->initialize_switch(0, "HW_ID", 0, NULL);
+    sai_attribute_t   attr_list[2] = {0};
+    sai_attribute_t   sw_attr[1] = {0};
+    sai_object_id_t   port_list[PORT_NUMBER] = {0};
+
+    status = sai_api_initialize(0, &test_services);
+    if (status != SAI_STATUS_SUCCESS) {
+        printf("Failed to initialize SAI API, status=%d\n", status);
+        return 1;
+    }
+
+    status = sai_api_query(SAI_API_SWITCH, (void**)&switch_api);
+    if (status != SAI_STATUS_SUCCESS || switch_api == NULL) {
+        printf("Failed to query SWITCH API, status=%d\n", status);
+        return 1;
+    }
+
+    status = sai_api_query(SAI_API_LAG, (void**)&lag_api);
+    if (status != SAI_STATUS_SUCCESS || lag_api == NULL) {
+        printf("Failed to query LAG API, status=%d\n", status);
+        return 1;
+    }
+
+    sai_switch_notification_t notifications = {0};
+    status = switch_api->initialize_switch(0, "HW_ID", 0, &notifications);
+    
+    if (status != SAI_STATUS_SUCCESS) {
+        printf("Failed to initialize switch, status=%d\n", status);
+        return 1;
+    }
 
     sw_attr[0].id = SAI_SWITCH_ATTR_PORT_LIST;
     sw_attr[0].value.objlist.count = PORT_NUMBER;
@@ -90,7 +112,7 @@ int main()
 
     {
         sai_object_id_t lag_ports[PORT_NUMBER];
-        sai_attribute_t lag_attr;
+        sai_attribute_t lag_attr = {0};
 
         lag_attr.id = SAI_LAG_ATTR_PORT_LIST;
         lag_attr.value.objlist.count = PORT_NUMBER;
@@ -112,7 +134,7 @@ int main()
 
     {
         sai_object_id_t lag_ports[PORT_NUMBER];
-        sai_attribute_t lag_attr;
+        sai_attribute_t lag_attr = {0};
 
         lag_attr.id = SAI_LAG_ATTR_PORT_LIST;
         lag_attr.value.objlist.count = PORT_NUMBER;
@@ -133,7 +155,7 @@ int main()
     }
 
     {
-        sai_attribute_t m_attr;
+        sai_attribute_t m_attr = {0};
 
         m_attr.id = SAI_LAG_MEMBER_ATTR_LAG_ID;
         status = lag_api->get_lag_member_attribute(mem1, 1, &m_attr);
@@ -158,7 +180,7 @@ int main()
 
     {
         sai_object_id_t lag_ports[PORT_NUMBER];
-        sai_attribute_t lag_attr;
+        sai_attribute_t lag_attr = {0};
 
         lag_attr.id = SAI_LAG_ATTR_PORT_LIST;
         lag_attr.value.objlist.count = PORT_NUMBER;
@@ -181,7 +203,7 @@ int main()
 
     {
         sai_object_id_t lag_ports[PORT_NUMBER];
-        sai_attribute_t lag_attr;
+        sai_attribute_t lag_attr = {0};
 
         lag_attr.id = SAI_LAG_ATTR_PORT_LIST;
         lag_attr.value.objlist.count = PORT_NUMBER;
