@@ -9,23 +9,23 @@ int main()
 {
     sai_status_t      status;
     sai_switch_api_t *switch_api = NULL;
-    sai_lag_api_t    *lag_api;
+    sai_lag_api_t    *lag_api = NULL;
     
     sai_object_id_t lag1, lag2;
     sai_object_id_t mem1, mem2, mem3, mem4;
-    sai_attribute_t attr = {0};
+    sai_attribute_t attr;
+    sai_object_id_t port_list[32];
 
     sai_api_initialize(0, &test_services);
-
-    sai_api_query(SAI_API_SWITCH, (void**)&switch_api);
+    status = sai_api_query(SAI_API_SWITCH, (void**)&switch_api);
     if (status != SAI_STATUS_SUCCESS || switch_api == NULL) {
         printf("Failed to query SWITCH API. Status: %d\n", status);
         return -1;
     }
 
-    sai_api_query(SAI_API_LAG, (void**)&lag_api);
+    status = sai_api_query(SAI_API_LAG, (void**)&lag_api);
     if (status != SAI_STATUS_SUCCESS || lag_api == NULL) {
-        printf("Failed to qury LAG API. Status: %d\n", status);
+        printf("Failed to query LAG API. Status: %d\n", status);
         return -1;
     }
 
@@ -55,9 +55,14 @@ int main()
 
     printf("Get LAG#1 PORT_LIST: ");
     attr.id = SAI_LAG_ATTR_PORT_LIST;
+    attr.value.objlist.list = port_list;
+    attr.value.objlist.count = 32;
     lag_api->get_lag_attribute(lag1, 1, &attr);
 
     printf("Get LAG#2 PORT_LIST: ");
+    attr.id = SAI_LAG_ATTR_PORT_LIST;
+    attr.value.objlist.list = port_list;
+    attr.value.objlist.count = 32;
     lag_api->get_lag_attribute(lag2, 1, &attr);
 
     printf("Get LAG_MEMBER#1 LAG_ID: ");
@@ -73,14 +78,21 @@ int main()
     lag_api->remove_lag_member(mem2);
 
     printf("Get LAG#1 PORT_LIST (after removal): ");
+    attr.id = SAI_LAG_ATTR_PORT_LIST;
+    attr.value.objlist.list = port_list;
+    attr.value.objlist.count = 32;
     lag_api->get_lag_attribute(lag1, 1, &attr);
 
     lag_api->remove_lag_member(mem3);
 
     printf("Get LAG#2 PORT_LIST (after removal): ");
+    attr.id = SAI_LAG_ATTR_PORT_LIST;
+    attr.value.objlist.list = port_list;
+    attr.value.objlist.count = 32;
     lag_api->get_lag_attribute(lag2, 1, &attr);
 
     printf("\n");
+
     lag_api->remove_lag_member(mem1);
     lag_api->remove_lag_member(mem4);
     lag_api->remove_lag(lag2);

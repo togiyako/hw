@@ -12,7 +12,6 @@ sai_status_t stub_create_lag(
 {
     sai_status_t status;
     status = stub_create_object(SAI_OBJECT_TYPE_LAG, next_lag_id++, lag_id);
-    
     if (status != SAI_STATUS_SUCCESS) {
         printf("Cannot create a LAG OID\n");
         return status;
